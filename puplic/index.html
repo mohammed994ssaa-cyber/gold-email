@@ -1,1 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gold Alert — Bahrain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#17191d;--muted:#737983;--line:#e7e8eb;--gold:#b98522;--green:#16834b;--red:#c23b3b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,Arial,sans-serif}
+.container{max-width:1100px;margin:auto;padding:28px 20px 60px}
+header{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.logo{font-weight:700;font-size:21px;letter-spacing:-.5px}.logo span{color:var(--gold)}
+.badge{font-size:12px;padding:8px 11px;border:1px solid var(--line);background:#fff;border-radius:999px;color:var(--muted)}
+.hero{background:#17191d;color:white;border-radius:24px;padding:32px;margin-bottom:18px;display:flex;justify-content:space-between;gap:20px;align-items:end}
+.hero h1{margin:0 0 8px;font-size:32px}.hero p{margin:0;color:#aeb2b8}.price{font-size:38px;font-weight:700;text-align:right}.price small{font-size:13px;color:#aeb2b8;font-weight:500}
+.grid{display:grid;grid-template-columns:1.2fr .8fr;gap:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:24px}
+h2{font-size:18px;margin:0 0 18px}.purities{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}
+.purity{border:1px solid var(--line);border-radius:14px;padding:15px}.purity b{display:block;font-size:14px}.purity span{font-size:15px;font-weight:600;margin-top:7px;display:block}.purity small{color:var(--muted)}
+label{font-size:12px;color:var(--muted);display:block;margin:13px 0 7px}
+input,select{width:100%;padding:13px;border:1px solid #dfe1e5;border-radius:12px;font:inherit;outline:none}input:focus,select:focus{border-color:var(--gold)}
+button{border:0;border-radius:12px;padding:13px 16px;font:inherit;font-weight:600;cursor:pointer}.primary{background:var(--gold);color:white;width:100%;margin-top:16px}.secondary{background:#f0f1f3;color:#333}
+.alert{display:flex;justify-content:space-between;align-items:center;border:1px solid var(--line);padding:15px;border-radius:14px;margin-top:10px}.alert .left{display:flex;gap:12px;align-items:center}.dot{width:9px;height:9px;background:var(--green);border-radius:50%}.target{font-weight:700}.muted{color:var(--muted);font-size:12px}.actions{display:flex;gap:7px}.danger{background:#fff0f0;color:var(--red)}
+.status{margin-top:14px;font-size:13px;color:var(--muted);min-height:18px}
+@media(max-width:800px){.grid{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}.price{text-align:left}.purities{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="container">
+<header><div class="logo">GOLD<span>ALERT</span></div><div class="badge">BHD / gram • Live monitoring</div></header>
 
+<section class="hero">
+<div><h1>Buy at your price.</h1><p>Set your target and we'll email you when gold reaches it.</p></div>
+<div><div class="price" id="mainPrice">— <small>BHD / g • 24K</small></div><div class="muted" id="updated" style="text-align:right;margin-top:5px;color:#aeb2b8">Updating…</div></div>
+</section>
+
+<div class="card" style="margin-bottom:18px">
+<h2>Current gold prices</h2>
+<div class="purities" id="prices"></div>
+</div>
+
+<div class="grid">
+<section class="card">
+<h2>Create price alert</h2>
+<form id="alertForm">
+<label>Gold purity</label>
+<select id="purity"><option>24K</option><option>22K</option><option>21K</option><option>18K</option></select>
+<label>Your target price (BHD per gram)</label>
+<input id="target" type="number" step="0.001" min="0.001" placeholder="Example: 35.000" required>
+<label>Email to notify</label>
+<input id="email" type="email" placeholder="you@example.com" required>
+<button class="primary">Create alert</button>
+<div class="status" id="formStatus"></div>
+</form>
+</section>
+
+<section class="card">
+<h2>Your alerts</h2>
+<div id="alerts"><div class="muted">Enter your email above to see your alerts.</div></div>
+</section>
+</div>
+</div>
+
+<script>
+let currentPrices={};
+const $=id=>document.getElementById(id);
+
+function money(v){return Number(v).toFixed(3)+" BHD";}
+async function refreshPrices(){
+  try{
+    const r=await fetch("/api/gold"); const d=await r.json();
+    if(!r.ok) throw new Error(d.error||"Price unavailable");
+    currentPrices=d.prices;
+    $("mainPrice").innerHTML=`${money(d.prices["24K"])} <small>BHD / g • 24K</small>`;
+    $("updated").textContent="Updated "+new Date(d.updatedAt).toLocaleTimeString();
+    $("prices").innerHTML=Object.entries(d.prices).map(([k,v])=>
+      `<div class="purity"><b>${k}</b><span>${money(v)}</span><small>per gram</small></div>`).join("");
+  }catch(e){$("updated").textContent="Price unavailable";}
+}
+async function loadAlerts(){
+  const email=$("email").value.trim(); if(!email)return;
+  const r=await fetch("/api/alerts?email="+encodeURIComponent(email)); const rows=await r.json();
+  $("alerts").innerHTML=rows.length?rows.map(a=>`
+    <div class="alert">
+      <div class="left"><div class="dot" style="background:${a.active?'#16834b':'#aaa'}"></div>
+      <div><div><b>${a.purity}</b> <span class="muted">${a.active?'Monitoring':'Paused'}</span></div>
+      <div class="target">${money(a.target_bhd)}</div>
+      <div class="muted">${a.triggered_at?'Alert sent':'Waiting for target'}</div></div></div>
+      <div class="actions">
+        <button class="secondary" onclick="toggleAlert(${a.id})">${a.active?'Pause':'Resume'}</button>
+        <button class="danger" onclick="deleteAlert(${a.id})">Delete</button>
+      </div>
+    </div>`).join(""):'<div class="muted">No alerts yet.</div>';
+}
+$("email").addEventListener("blur",loadAlerts);
+$("alertForm").addEventListener("submit",async e=>{
+ e.preventDefault();
+ const body={purity:$("purity").value,target_bhd:$("target").value,email:$("email").value.trim()};
+ const r=await fetch("/api/alerts",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+ const d=await r.json();
+ $("formStatus").textContent=r.ok?"Alert created successfully.":"Error: "+d.error;
+ if(r.ok){$("target").value="";loadAlerts();}
+});
+async function deleteAlert(id){await fetch("/api/alerts/"+id,{method:"DELETE"});loadAlerts();}
+async function toggleAlert(id){await fetch("/api/alerts/"+id+"/toggle",{method:"POST"});loadAlerts();}
+refreshPrices(); setInterval(refreshPrices,60000);
+</script>
+</body>
+</html>
